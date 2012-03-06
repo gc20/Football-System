@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item value="237" key="DIALOG_WIDTH"/>
+		<item value="150" key="DIALOG_Y_ORIGIN"/>
+		<item value="362" key="DIALOG_HEIGHT"/>
+		<item value="972" key="DIALOG_X_ORIGIN"/>
+		<item value="1|Tahoma|8.25|0|WINDOWS|1|-11|0|0|0|400|0|0|0|1|0|0|0|0|Tahoma" key="DIALOG_FONT_NAME"/>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item value="true" key="wrap"/>
+		<item value="false" key="isRegEx"/>
+		<item value="false" key="casesensitive"/>
+		<item value="false" key="incremental"/>
+		<item value="false" key="wholeword"/>
+		<item value="ATTACK_SUPPORT" key="selection"/>
+		<list key="findhistory">
+			<item value="ATTACK_SUPPORT"/>
+			<item value="managePlayer"/>
+			<item value="strategy"/>
+			<item value="DCE"/>
+			<item value="DTE"/>
+			<item value="uart_inst"/>
+			<item value="dte"/>
+			<item value="dce"/>
+		</list>
+		<list key="replacehistory">
+			<item value="DTE"/>
+			<item value="DCE"/>
+		</list>
+	</section>
+</section>

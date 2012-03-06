@@ -1,0 +1,573 @@
+--StrategyB---------------------------------------
+--------------------------------------------------
+--BlueTeam------------------------------------------------
+global i
+global ftop, fbot, gRight, gLeft, fRightX,fLeftX
+global b1,b2,b3,b4,b5,ball
+--------------------
+on strategyB
+  --run(b3)
+  goalie1(b1)
+  attack2(b4)
+  attack2(b5)
+ defend1(b2)
+defend2(b3)
+end
+on run(who)
+  if  i > 120 then
+    velocity(who,75,75) 
+  end if 
+  if i  > 150 then 
+    velocity(b3,75,0) 
+  end if 
+  if i  > 160 then 
+    velocity(b3,0,0) 
+    
+  end if 
+  if i  > 850 then 
+    velocity(b3,125,125) 
+    
+  end if 
+end
+
+on Goalie1(whichBot)
+  vr = 0
+  vl = 0
+  Z = ball
+  Tx = gRight - Z.x
+  Ty = ftop - Z.y
+  A = whichBot.pos
+  A.x = gRight - A.x
+  A.y = ftop - A.y
+  
+  if A.y > Ty + .9 and A.y > 27 then
+    vr = -100
+    vl = -100
+  end if 
+  if A.y < Ty -.9 and A.y < 43 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y < 27 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y >43 then
+    vr = -100
+    vl = -100
+  end if 
+  --------correct rot--------------------
+  tR = whichBot.rot.z 
+  if  tR < .001 then tR = tR + 360
+  if tR >360.001 then tR = tR - 360
+  if tR > 270.5 then 
+    vl = vl + abs(tR - 270)
+  else if tR < 269.5 then 
+    vr = vr + abs(tR - 270)
+  end if 
+  --------------------
+  velocity(whichBot , vl, vr)
+end
+------------------
+on defend1(whichBot)
+  vr = 0
+  vl = 0
+  Z = ball
+  Tx = gRight - Z.x
+  Ty = ftop - Z.y
+  A = whichBot.pos
+  A.x = gRight - A.x
+  A.y = ftop - A.y
+  
+  if A.y > Ty + .9 and A.y > 40 then
+    vr = -100
+    vl = -100
+  end if 
+  if A.y < Ty -.9 and A.y < 70 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y < 40 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y >70 then
+    vr = -100
+    vl = -100
+  end if 
+  --------correct rot--------------------
+  tR = whichBot.rot.z 
+  if  tR < .001 then tR = tR + 360
+  if tR >360.001 then tR = tR - 360
+  if tR > 270.5 then 
+    vl = vl + abs(tR - 270)
+  else if tR < 269.5 then 
+    vr = vr + abs(tR - 270)
+  end if 
+  --------------------
+ nearBound2(whichBot,vl,vr)
+end
+-----------------
+on defend2(whichBot)
+  vr = 0
+  vl = 0
+  Z = ball
+  Tx = gRight - Z.x
+  Ty = ftop - Z.y
+  A = whichBot.pos
+  A.x = gRight - A.x
+  A.y = ftop - A.y
+  
+  if A.y > Ty + .9 and A.y > 0 then
+    vr = -100
+    vl = -100
+  end if 
+  if A.y < Ty -.9 and A.y < 35 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y < 0 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y >35 then
+    vr = -100
+    vl = -100
+  end if 
+  --------correct rot--------------------
+  tR = whichBot.rot.z 
+  if  tR < .001 then tR = tR + 360
+  if tR >360.001 then tR = tR - 360
+  if tR > 270.5 then 
+    vl = vl + abs(tR - 270)
+  else if tR < 269.5 then 
+    vr = vr + abs(tR - 270)
+  end if 
+  --------------------
+ nearBound2(whichBot,vl,vr)
+end
+------------------
+on attack2(whichBot)
+  T = ball
+  A = whichBot.pos
+  R = whichBot.rot .z
+  if  R < 0 then R = R + 360
+  if R >360 then R = R - 360
+  vr = 0
+  vl=20
+  
+  if abs(a.y - t.y) > 7 or t.x > a.x then
+    ---------------------------------attackpoint
+    if t.y > (ftop - 2.5) then t.y = (ftop - 2.5)
+    if t.y < (fbot + 2.5) then t.y = (fbot + 2.5)
+    if t.x >(fRightX - 3) then t.x = (fRightX - 3)
+    if t.x <(fLeftX +3) then t.x = (fLeftX +3)
+    dX = (A.x) -T.x
+    dY = A.y - T.y 
+    -----------------------
+    if(dX - 5  = 0) Then
+      if(dY > 0) then 
+        angleToPoint = 270.0
+        -- angleToPoint = 90.0
+      else
+        angleToPoint = 90.0
+        	-- angleToPoint = 270.0
+      end if 
+    else if(dY = 0) Then
+      if(dX  - 5> 0) then
+        	 angleToPoint = 360.0
+      else 
+        	angleToPoint = 180.0
+      	end if 
+    else    
+      angleToPoint = atan(abs(dY/dX)) * 180.0/pi()
+    end if 
+    if(dX  - 5 > 0) then
+      if(dY > 0) then
+        	  angleToPoint = angleToPoint - 180
+      else  if(dY < 0) then 
+        	angleToPoint = 180.0 - angleToPoint
+      	end if 
+    end if
+    if(dX - 5 < 0) then
+      if(dY > 0) then
+        	  angleToPoint = 180 -angleToPoint -180
+      else  if(dY < 0) then 
+        	angleToPoint = 270 - angleToPoint -180
+      	end if      
+    end if 
+    if  angleToPoint < 0 then angleToPoint = angleToPoint +360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    -------------------------
+    C = R 
+    
+    if  abs(C  - (angleToPoint )) < 40  then 
+      vr = 100
+      vl= 100
+      if C > angletopoint then 
+        vr = vr - 10
+      end if 
+      if C < angleToPoint then
+        vl = vl - 10
+      end if 
+    else 
+      if  R  > (angleToPoint )  then 
+        vl = vl + abs(R - angleToPoint)
+      end if
+      if  R < (angleToPoint ) then 
+        vr = vr + abs(R - angleToPoint)
+      end if      
+    end if 
+    ---------------------------------attackpoint
+  else
+    ---------------------------------attackball
+    if t.y > (ftop - 2.5) then t.y = (ftop - 2.5)
+    if t.y < (fbot + 2.5) then t.y = (fbot + 2.5)
+    if t.x >(fRightX - 3) then t.x = (fRightX - 3)
+    if t.x <(fLeftX +3) then t.x = (fLeftX +3)
+    dX = (A.x) -T.x
+    dY = A.y - T.y 
+    -----------------------
+    if(dX = 0) Then
+      if(dY > 0) then 
+        angleToPoint = 270.0
+        -- angleToPoint = 90.0
+      else
+        angleToPoint = 90.0
+        	-- angleToPoint = 270.0
+      end if 
+    else if(dY = 0) Then
+      if(dX > 0) then
+        	 angleToPoint = 360.0
+      else 
+        	angleToPoint = 180.0
+      	end if 
+    else    
+      angleToPoint = atan(abs(dY/dX)) * 180.0/pi()
+    end if 
+    if(dX > 0) then
+      if(dY > 0) then
+        	  angleToPoint = angleToPoint - 180
+      else  if(dY < 0) then 
+        	angleToPoint = 180.0 - angleToPoint
+      	end if 
+    end if
+    if(dX < 0) then
+      if(dY > 0) then
+        	  angleToPoint = 180 -angleToPoint -180
+      else  if(dY < 0) then 
+        	angleToPoint = 270 - angleToPoint -180
+      	end if      
+    end if 
+    if  angleToPoint < 0 then angleToPoint = angleToPoint +360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    -------------------------
+    C = R 
+    
+    if  abs(C  - (angleToPoint )) < 40  then 
+      vr = 100
+      vl= 100
+      if C > angletopoint then 
+        vr = vr- 10
+      end if 
+      if C < angleToPoint then
+        vl = vl -10
+      end if 
+    else 
+      if  R  > (angleToPoint )  then 
+        vl = vl + abs(R - angleToPoint)
+      end if
+      if  R < (angleToPoint ) then 
+        vr = vr + abs(R - angleToPoint)
+      end if 
+    end if 
+    ---------------------------------attackball
+  end if 
+  
+  nearBound2(whichBot,vl,vr)
+end
+----------------------------
+on supp(whichBot)
+  T = Ball
+  t.x = t.x + 10
+  if t.X > (gright-20) then
+    t.x = 20
+  end if 
+  
+  A = whichBot.pos
+  R = whichBot.rot .z
+  if  R < 0 then R = R + 360
+  if R >360 then R = R - 360
+  vr = 0
+  vl=20
+  
+  if abs(a.y - t.y) > 7 or t.x > a.x then
+    ---------------------------------attackpoint
+    if t.y > (ftop - 2.5) then t.y = (ftop - 2.5)
+    if t.y < (fbot + 2.5) then t.y = (fbot + 2.5)
+    if t.x >(fRightX - 3) then t.x = (fRightX - 3)
+    if t.x <(fLeftX +3) then t.x = (fLeftX +3)
+    dX = (A.x) -T.x
+    dY = A.y - T.y 
+    -----------------------
+    if(dX - 5  = 0) Then
+      if(dY > 0) then 
+        angleToPoint = 270.0
+        -- angleToPoint = 90.0
+      else
+        angleToPoint = 90.0
+        -- angleToPoint = 270.0
+      end if 
+    else if(dY = 0) Then
+      if(dX  - 5> 0) then
+        angleToPoint = 360.0
+      else 
+        angleToPoint = 180.0
+      end if 
+    else    
+      angleToPoint = atan(abs(dY/dX)) * 180.0/pi()
+    end if 
+    if(dX  - 5 > 0) then
+      if(dY > 0) then
+        angleToPoint = angleToPoint - 180
+      else  if(dY < 0) then 
+        angleToPoint = 180.0 - angleToPoint
+      end if 
+    end if
+    if(dX - 5 < 0) then
+      if(dY > 0) then
+        angleToPoint = 180 -angleToPoint -180
+      else  if(dY < 0) then 
+        angleToPoint = 270 - angleToPoint -180
+      end if      
+    end if 
+    if  angleToPoint < 0 then angleToPoint = angleToPoint +360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    -------------------------
+    C = R 
+    
+    if  abs(C  - (angleToPoint )) < 40  then 
+      vr = 100
+      vl= 100
+      if C > angletopoint then 
+        vr = vr - 10
+      end if 
+      if C < angleToPoint then
+        vl = vl - 10
+      end if 
+    else 
+      if  R  > (angleToPoint )  then 
+        vl = vl + abs(R - angleToPoint)
+      end if
+      if  R < (angleToPoint ) then 
+        vr = vr + abs(R - angleToPoint)
+      end if      
+    end if 
+    ---------------------------------attackpoint
+  else
+    ---------------------------------attackball
+    if t.y > (ftop - 2.5) then t.y = (ftop - 2.5)
+    if t.y < (fbot + 2.5) then t.y = (fbot + 2.5)
+    if t.x >(fRightX - 3) then t.x = (fRightX - 3)
+    if t.x <(fLeftX +3) then t.x = (fLeftX +3)
+    dX = (A.x) -T.x
+    dY = A.y - T.y 
+    -----------------------
+    if(dX = 0) Then
+      if(dY > 0) then 
+        angleToPoint = 270.0
+        -- angleToPoint = 90.0
+      else
+        angleToPoint = 90.0
+        -- angleToPoint = 270.0
+      end if 
+    else if(dY = 0) Then
+      if(dX > 0) then
+        angleToPoint = 360.0
+      else 
+        angleToPoint = 180.0
+      end if 
+    else    
+      angleToPoint = atan(abs(dY/dX)) * 180.0/pi()
+    end if 
+    if(dX > 0) then
+      if(dY > 0) then
+        angleToPoint = angleToPoint - 180
+      else  if(dY < 0) then 
+        angleToPoint = 180.0 - angleToPoint
+      end if 
+    end if
+    if(dX < 0) then
+      if(dY > 0) then
+        angleToPoint = 180 -angleToPoint -180
+      else  if(dY < 0) then 
+        angleToPoint = 270 - angleToPoint -180
+      end if      
+    end if 
+    if  angleToPoint < 0 then angleToPoint = angleToPoint +360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    if  angleToPoint > 360 then angleToPoint = angleToPoint -360
+    -------------------------
+    C = R 
+    
+    if  abs(C  - (angleToPoint )) < 40  then 
+      vr = 100
+      vl= 100
+      if C > angletopoint then 
+        vr = vr- 10
+      end if 
+      if C < angleToPoint then
+        vl = vl -10
+      end if 
+    else 
+      if  R  > (angleToPoint )  then 
+        vl = vl + abs(R - angleToPoint)
+      end if
+      if  R < (angleToPoint ) then 
+        vr = vr + abs(R - angleToPoint)
+      end if 
+    end if 
+    ---------------------------------attackball
+  end if 
+  
+  nearBound(whichBot,vr,vl)
+end
+----------------------------
+
+-----------------------------
+
+on attack1(whichBot)
+  vr = 0
+  vl = 0
+  T = member(1).model("Ball").transform.position
+  T.x = gRight - T.x
+  T.y = ftop - T.y
+  A = whichBot.pos
+  A.x = gRight - A.x
+  A.y = ftop - A.y
+  tR = whichBot.rot.z -180
+  if  tR < .001 then tR = tR + 360
+  if tR >360.001 then tR = tR - 360
+  
+  vr = 50
+  vl = 50
+  if A.x <(T.x -10) and tR >340 and tR < 20 then 
+    vr = 50
+    vl = 50
+  else  if A.x <(T.x -10) and tR <340 or tR > 20 then 
+    vr = 20
+    vl = 20
+  end if 
+  if  A.x >(T.x -20) then    
+    vr = 50
+    vl = 50
+  else if  A.x >(T.x -20) then   
+    vr = 20
+    vl = 20
+  end if 
+  if A.x <(T.x -15) then
+    if tR < 340 and tR  > 180 then
+      vr = vr+55
+      vl =  vl - 30
+    end if 
+    if tR > 20 and tR < 180 then
+      vr = vr -30
+      vl = vl +55
+    end if 
+  end if 
+  -----------
+  if A.y <5 then
+    vr = -100
+    vl = -120
+  end if 
+  if A.y > ftop - fbot  - 5 then
+    vr =  -120
+    vl = -110
+  end if 
+  if A.x <5 then
+    vr = -110
+    vl = -120
+  end if 
+  if A.y > 56 then
+    vr =  -120
+    vl = -100
+  end if 
+  --------
+  if A.x >(T.x -15) and tR <355 and tR > 180 and abs(A.y - T.y) < 1 then
+    vr = vr+55
+    vl =  vl 
+  end if 
+  if A.x >(T.x -15) and tR > 5 and tR < 180 and abs(A.y - T.y) < 1 then
+    vr = vr 
+    vl = vl +55
+  end if 
+  if A.x >(T.x -20) and A.y = (T.y ) and tR > 179 and  tR < 181 then
+    vr = vr 
+    vl =vl 
+  else if A.x >(T.x -20) and A.x <(T.x -8) and A.y >(T.y) then
+    vr = vr 
+    vl =vl + 3
+  else if  A.x >(T.x -20) and A.x <(T.x -8) and A.y <(T.y  )  then
+    vr = vr +3
+    vl =vl 
+  end if 
+  if  A.x >(T.x +1) then
+    vr = 60
+    vl = 40
+    --else if  A.x>T.x - 1  then
+    --vr = 50
+    --vl =50
+  end if 
+  
+  velocity(whichBot , vl, vr)
+  
+end
+----------------------
+on nearBound2(whichBot,vl,vr)
+  T = ball
+  A = whichBot.pos
+  R = whichBot.rot .z
+  
+  
+  if A.y > (ftop - 15) and R > 45 And R < 130 then 
+    if vr > 0 then      
+      vr = vr / 3
+    end if 
+    if vl > 0 then      
+      vl = vl / 3
+    end if 
+  end if 
+  
+  if A.y < (fbot + 15) and R < -45 And R > -130 then
+    if vr > 0 then      
+      vr = vr / 3
+    end if 
+    if vl > 0 then      
+      vl = vl / 3
+    end if 
+  end if 
+  if A.x >(fRightX - 10) then
+    if vr > 0 then      
+      vr = vr / 2
+    end if 
+    if vl > 0 then      
+      vl = vl / 2
+    end if 
+  end if 
+  if A.x <(fLeftX +10) then
+    if vr > 0 then      
+      vr = vr / 2
+    end if 
+    if vl > 0 then      
+      vl = vl / 2
+    end if 
+  end if 
+  velocity(whichBot , vl,vr)
+end
+-----------------------------

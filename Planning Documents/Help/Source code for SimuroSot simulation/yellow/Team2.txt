@@ -1,0 +1,507 @@
+--StrategyY---------------------------------------
+--------------------------------------------------
+---YellowTeam----------------------------------------------
+
+global ftop, fbot, gRight, gLeft,fRightX,fLeftX
+global y1,y2,y3,y4,y5,ball,blist,pball
+global bpLast,BB1,BB2,i
+
+
+
+on strategyY
+  
+  predictBall()
+  goalie1(y1)
+  --attackball(y2)
+  --attackball(y3)
+  --attack3(y2)
+  --attack3(y3) 
+  decideAttack(y4,y5)
+  decideDefend(y2,y3)
+  --posdef1(y2)
+  --posdef2(y3)
+end
+-------------------------------
+on decideAttack(attack1,attack2)
+  if pBall.x -10> attack1.pos.X or pBall.x -10 > attack2.pos.X then
+    retreat = false
+  end if 
+  
+  if pBall.x > attack1.pos.X and pBall.x > attack2.pos.X and retreat = false then 
+    At1 = vector(attack1.pos.X,attack1.pos.Y,0)
+    At2 = vector(attack2.pos.X,attack2.pos.Y,0)
+    BLL = vector(pBall.X,pBall.Y,0)
+    if At1.distanceTo(BLL)<At2.distanceTo(BLL) then
+      attackBall(attack1)
+      supportattack(attack2,attack1.pos)
+    else
+      attackBall(attack2)
+      supportattack(attack1,attack2.pos)
+    end if 
+    
+  else if pBall.x > attack1.pos.X then
+    attackBall(attack1)
+    supportattack(attack2,attack1.pos)
+  else if pBall.x > attack2.pos.X then
+    attackBall(attack2)
+    supportattack(attack1,attack2.pos)
+  else
+    retreat = true
+    supportattack(attack1,pBall)
+    supportattack(attack2,attack1.pos)
+  end if 
+  
+end decideAttack
+
+-------------------------------
+on decideDefend(def1,def2)
+  if pBall.x -3> def1.pos.X then
+    retreat2 = false
+  end if 
+  if pBall.x -3> def2.pos.X then
+    retreat3 = false
+  end if 
+  
+  if Ball.x > def1.pos.X and retreat2 = false then
+    --attackBall(def1)
+    posdef1(def1)
+  else
+    retreat2=true
+    supportattack(def1,ball)
+  end if      
+  if Ball.x > def2.pos.X and retreat3 = false then
+    --attackBall(def2)
+    posdef2(def2)
+  else
+    retreat3=true
+    supportattack(def2,ball)
+  end if 
+  if retreat2= false and def1.pos.x < 20 then
+    gopos = vector(25,55,1)
+    supportattack(def1,gopos)
+  end if 
+  if retreat3= false and def2.pos.x < 20 then
+    gopos = vector(25,25,1)
+    supportattack(def2,gopos)
+  end if 
+  
+  
+end decideDefend
+-------------------------------
+on Goalie1(whichBot)
+  vr = 0
+  vl = 0
+  
+  Z = ball --member(1).model("Ball").transform.position
+  Tx =  Z.x - gleft
+  Ty =  Z.y - fbot
+  A = whichBot.pos
+  A.x =  A.x - gleft
+  A.y = A.y - fbot
+  
+  R = whichBot.rot.z 
+  if  R < .001 then R = R + 360
+  if R >360.001 then R = R - 360
+  -----------------
+  if A.y > Ty + .9 and A.y > 27 then
+    vr = -100
+    vl =-100
+  end if 
+  if A.y < Ty -.9 and A.y < 43 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y < 27 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y > 43 then
+    vr = -100
+    vl =-100
+  end if 
+  ----------------------------
+  if R > 90.5 then 
+    vl = vl + abs(R - 90)
+  else if R  < 89.5 then 
+    vr = vr + abs(R - 90)
+  end if 
+  --------------------
+  velocity(whichBot , vl,vr)
+end
+-----------------
+on attack2(whichBot)
+  r = whichbot.rot.z
+  T = ball
+  A = whichbot.pos
+  vr = 50
+  vl = 20
+  if r < 160 or T.y < (A.y - 8)  then
+    vr = vr 
+    vl = vl + 20
+  else
+    vr = vr + 40 
+    vl = vl 
+  end if
+  
+  --if r > 160 and T.y < A.y  then
+  --vr = vr +10
+  --else if r < 200 and T.y > T.y  then
+  --vl = vl+ 10
+  --end if 
+  
+  
+  --f r > 180 or T.y < (A.y + 8)  then
+  --vr = vr 
+  --vl = vl  + 40
+  --end if
+  
+  velocity(whichBot , vl,vr)
+end
+----------------------------
+
+on attack3(whichBot)
+  vr = 0
+  vl = 0
+  T = member(1).model("Ball").transform.position
+  A = whichBot.pos
+  R = whichBot.rot.z
+  if  R < 1 then R = R +360
+  
+  vr = 50
+  vl = 50
+  if A.x <(T.x -10) and R >340 and R < 20 then 
+    vr = 50
+    vl = 50
+  else  if A.x <(T.x -10) and R <340 or R > 20 then 
+    vr = 20
+    vl = 20
+  end if 
+  if  A.x >(T.x -20) then 
+    vr = 50
+    vl = 50
+  else if  A.x >(T.x -20) then   
+    vr = 20
+    vl = 20
+  end if 
+  if A.x <(T.x -15) then
+    if R < 340 and R  > 180 then
+      vr = vr+55
+      vl =  vl - 30
+    end if 
+    if R > 20 and R < 180 then
+      vr = vr -30
+      vl = vl +55
+    end if 
+  end if 
+  
+  if A.x >(T.x -15) and R <355 and R > 180 and abs(A.y - T.y) < 1 then
+    vr = vr+55
+    vl =  vl 
+  end if 
+  if A.x >(T.x -15) and R > 5 and R < 180 and abs(A.y - T.y) < 1 then
+    vr = vr 
+    vl = vl +55
+  end if 
+  if A.x <(T.x -20) and A.y = (T.y ) or  A.y = (T.y) then
+    vr = vr 
+    vl =vl 
+  else if A.x <(T.x -20) and A.y >(T.y) then
+    vr = vr 
+    vl =vl +1.40
+  else if  A.x <(T.x -20) and A.y <(T.y  )  then
+    vr = vr +1.40
+    vl =vl 
+  end if 
+  if  A.x >(T.x +1) then
+    vr = 60
+    vl = 40
+    --else if  A.x>T.x - 1  then
+    --vr = 50
+    --vl =50
+  end if 
+  velocity(whichBot , vl,vr)
+end
+-----------------------****
+on attackball(whichbot)
+  T = pball
+  A = whichBot.pos
+  R = whichBot.rot .z
+  vr = 0
+  vl=0
+  dX = A.x - T.x
+  dY = A.y - T.y 
+  angletopoint = getAngleToPoint(whichbot,pBall)
+  -------------------------
+  
+  if  R  > (angleToPoint ) and dx < 0 then 
+    vl = vl + abs(R - angleToPoint)
+  end if
+  if  R < (angleToPoint ) and dx < 0 then 
+    vr = vr + abs(R - angleToPoint)
+  end if
+  
+  if  R  > (angleToPoint ) and dx > 0 then 
+    vl = vl + abs(angleToPoint-R)
+    --put abs(angleToPoint-R)
+  end if
+  if  R < (angleToPoint ) and dx > 0 then 
+    vr = vr + abs(angleToPoint-R)
+    --put abs(angleToPoint-R)
+  end if
+  
+  if  abs(R  - (angleToPoint )) < 40  then 
+    vr = 100
+    vl= 100
+    if R < angletopoint and dx <= 0 then 
+      vl = vl-  10
+    end if 
+    if R > angleToPoint and dx <= 0 then
+      vr = vr - 10
+    end if 
+    if R < angletopoint and dx > 0 then 
+      vl = vl -  10
+    end if 
+    if R > angleToPoint and dx > 0 then
+      vr = vr - 10
+    end if 
+  end if 
+  ---------------------------------attackball
+  ----------------------slow for boundry  
+  nearBound(whichBot,vl,vr)
+  -------------------------
+  --velocity(whichBot,vl,vr)  
+end attackball
+----------------------supAtt
+on supportattack(whichbot,att)
+  fcenter = (ftop - fbot)/2
+  T = ball
+  if att.y > fcenter then T.y = att.y - 20
+  if att.y < fcenter then T.y = att.y + 20
+  --T.y = (ftop - fbot) - att.pos.y --+ fcenter
+  if ball.x > 20 then T.x = Ball.x - 15
+  if ball.x <= 20 then T.x = 20
+  A = whichBot.pos
+  R = whichBot.rot .z
+  vr = 0
+  vl=0
+  dX = A.x - T.x
+  dY = A.y - T.y 
+  angletopoint = getAngleToPoint(whichbot,T)
+  -------------------------
+  
+  if  R  > (angleToPoint ) and dx < 0 then 
+    vl = vl + abs(R - angleToPoint)
+  end if
+  if  R < (angleToPoint ) and dx < 0 then 
+    vr = vr + abs(R - angleToPoint)
+  end if
+  
+  if  R  > (angleToPoint ) and dx > 0 then 
+    vl = vl + abs(angleToPoint-R)
+    --put abs(angleToPoint-R)
+  end if
+  if  R < (angleToPoint ) and dx > 0 then 
+    vr = vr + abs(angleToPoint-R)
+    --put abs(angleToPoint-R)
+  end if
+  
+  if  abs(R  - (angleToPoint )) < 40  then 
+    vr = 100
+    vl= 100
+    if R < angletopoint and dx <= 0 then 
+      vl = vl-  10
+    end if 
+    if R > angleToPoint and dx <= 0 then
+      vr = vr - 10
+    end if 
+    if R < angletopoint and dx > 0 then 
+      vl = vl -  10
+    end if 
+    if R > angleToPoint and dx > 0 then
+      vr = vr - 10
+    end if 
+  end if 
+  ---------------------------------Supatt
+  ----------------------slow for boundry  
+  nearBound(whichBot,vl,vr)
+  -------------------------
+  --velocity(whichBot,vl,vr)  
+end supportattack
+-----------------------PredictBall-------
+on predictBall
+  
+  blast = getAt(blist, i - 1)
+  pX = ball.x + (ball.x - blast.x)
+  pY = ball.y + (ball.y - blast.y)
+  pBall = vector(pX,pY,0)
+  --put "b " & ball
+  --put "pB " & pball
+  --put "bl " & Blast
+end predictball
+
+-------------------------nearBound
+on nearBound(whichBot,vl,vr)
+  T = ball
+  A = whichBot.pos
+  R = whichBot.rot .z
+  
+  
+  if A.y > (ftop - 15) and R > 45 And R < 130 then 
+    if vr > 0 then      
+      vr = vr / 3
+    end if 
+    if vl > 0 then      
+      vl = vl / 3
+    end if 
+  end if 
+  
+  if A.y < (fbot + 15) and R < -45 And R > -130 then
+    if vr > 0 then      
+      vr = vr / 3
+    end if 
+    if vl > 0 then      
+      vl = vl / 3
+    end if 
+  end if 
+  if A.x >(fRightX - 10) then
+    if vr > 0 then      
+      vr = vr / 2
+    end if 
+    if vl > 0 then      
+      vl = vl / 2
+    end if 
+  end if 
+  if A.x <(fLeftX +10) then
+    if vr > 0 then      
+      vr = vr / 2
+    end if 
+    if vl > 0 then      
+      vl = vl / 2
+    end if 
+  end if 
+  velocity(whichBot , vl,vr)
+end
+-----------------------------
+on posDef1(whichBot)
+  vr = 0
+  vl = 0
+  
+  Z = ball 
+  Tx =  Z.x - gleft
+  Ty =  Z.y - fbot
+  A = whichBot.pos
+  A.x =  A.x - gleft
+  A.y = A.y - fbot
+  
+  R = whichBot.rot.z 
+  if  R < .001 then R = R + 360
+  if R >360.001 then R = R - 360
+  -----------------
+  if A.y > Ty + .9 and A.y > 40 then
+    vr = -100
+    vl =-100
+  end if 
+  if A.y < Ty -.9 and A.y < 90 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y < 40 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y > 90 then
+    vr = -100
+    vl =-100
+  end if 
+  ----------------------------
+  if R > 90.5 then 
+    vl = vl + abs(R - 90)
+  else if R  < 89.5 then 
+    vr = vr + abs(R - 90)
+  end if 
+  --------------------
+  nearBound(whichBot,vl,vr)
+end
+----------------------------
+on posDef2(whichBot)
+  vr = 0
+  vl = 0
+  
+  Z = pball 
+  Tx =  Z.x 
+  Ty =  Z.y 
+  A = whichBot.pos
+  --A.x =  A.x - gleft
+  --A.y = A.y - fbot
+  
+  R = whichBot.rot.z 
+  if  R < -180 then R = R + 360
+  if R >180 then R = R - 360
+  -----------------
+  if A.y >= ball.y and A.y > 3 then
+    vr =-100
+    vl =-100
+  end if 
+  if A.y <= ball.y and A.y < 40 then
+    vr = 100
+    vl =100
+    
+  end if 
+  if A.y <= 3 then
+    vr = 100
+    vl =100
+  end if 
+  if A.y >= 40 then
+    vr = -100
+    vl =-100
+  end if 
+  ----------------------------
+  if R > 90.5 then 
+    vl = vl + abs(R - 90)
+  else if R  < 89.5 then 
+    vr = vr + abs(R - 90)
+  end if 
+  --------------------
+  nearBound(whichBot,vl,vr)
+end
+------------------------------
+on getangletopoint(whichbot,ptarget)
+  T = ptarget
+  A = whichBot.pos
+  R = whichBot.rot .z
+  
+  ------------------------------avoidBoundry
+  if t.y > (ftop - 2.5) then t.y = (ftop - 2.5)
+  if t.y < (fbot + 2.5) then t.y = (fbot + 2.5)
+  if t.x >(fRightX - 2.5) then t.x = (fRightX - 2.5)
+  if t.x <(fLeftX +2.5) then t.x = (fLeftX +2.5)
+  dX = A.x - T.x
+  dY = A.y - T.y 
+  -----------------------
+  
+  angleToPoint = atan(abs(dY/dX)) * 180.0/pi()
+  if(dX > 0) then
+    if(dY > 0) then
+            angleToPoint = 360 + angleToPoint - 180
+     -- put "a " & angleToPoint
+    else  if(dY < 0) then 
+          angleToPoint = 360 - angleToPoint -180
+     -- put "b " & angleToPoint
+        end if 
+  end if
+  if(dX < 0) then
+    if(dY > 0) then
+            angleToPoint = 180 - angleToPoint -180
+      --put "c " & angleToPoint
+    else  if(dY < 0) then 
+          angleToPoint = 180 + angleToPoint -180
+      --put "d " & angleToPoint
+        end if      
+  end if 
+  if angleToPoint > 180 then angleToPoint= angleToPoint - 360
+  if angleToPoint < -180 then angleToPoint= angleToPoint + 360
+  
+  return (angleToPoint)
+end

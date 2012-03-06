@@ -1,0 +1,209 @@
+//***********************************
+// include files
+//***********************************
+#include <stdio.h>
+#include <math.h>
+#include <xmk.h>
+#include <xparameters.h>
+#include <errno.h>
+#include <xuartlite.h>
+#include "constants.h"
+#include "xgpio.h"
+
+//***********************************
+// type definitions
+//***********************************
+
+typedef struct position {
+    u16 x, y;
+} position;
+
+typedef struct player {
+    position position;
+    u16 speed;
+	u8 direction;
+	u8 kickBit; // 1-> kick, 0-> move
+	u8 isInFoulBox;
+} player;
+
+typedef struct team {
+    player player[5];
+} team;
+
+typedef struct ball {
+    position position;
+    double speed;
+    u8 direction;
+} ball;
+
+typedef enum fieldtype {    
+    FIELD_LEFT,
+    FIELD_RIGHT
+} fieldtype;
+
+typedef enum ballFutureState {    
+    BALL_MIGHT_HIT_WALL,
+    PLAYER_MIGHT_KICK_BALL,
+    NO_FORCE_ON_BALL
+} ballfutureState;
+
+typedef enum assignment {
+    ASSIGNED,
+	UNASSIGNED
+} assignment;
+
+typedef enum strategyMode {
+    OFFENSIVE,
+    DEFENSIVE
+} strategyMode;
+
+typedef enum playerStrategy {
+    MAN_MARK,
+    BALL_ATTACK,
+    ATTACK_SUPPORT
+} playerStrategy;
+
+typedef enum gameState {
+    NORMAL,
+    GOAL_RESET,
+    OWN_FOUL_RESET,
+    OPPONENT_FOUL_RESET
+} gameState;
+
+typedef enum foulType {
+	DEFENDING_FOUL,	//when foul occurs in the defending side
+	ATTACKING_FOUL	//when foul occurs in the attacking side
+} foulType;
+
+//***********************************
+// Global variables
+//***********************************
+double sin_lut[16] = {0, -0.38, -0.70, -0.92, -1, -0.92, -0.70, -0.38, 0, 0.38, 0.70, 0.92, 1, 0.92, 0.70, 0.38};
+double cos_lut[16] = {1, 0.92, 0.70, 0.38, 0, -0.38, -0.70, -0.92, -1, -0.92, -0.70, -0.38, 0, 0.38, 0.70, 0.92};
+int playerInAttackingFoulBox = 0;
+int playerInDefendingFoulBox = 0;
+u8 fieldSide; 
+XGpio GpioInputButton;
+XGpio GpioInputSwitch;
+team teamA, teamB;
+ball currBall;
+
+// Interrupt related variables
+volatile u32 circularDataBuffer[qSize] = {0};
+volatile u8 qRead = 0;
+volatile u8 qWrite = 0;
+volatile u8 numberOfPackets = 0;
+XUartLite uart_inst;
+
+//***********************************
+// communication function prototypes
+//***********************************
+
+// Initialize hardware interrupts
+void initializeInterrupts();
+
+// Send Interrupt Handler (Unused)
+static void Send_Handler (void* CallBackRef, unsigned int EventData);
+
+// Send update packets
+void sendUpdatePackets();
+
+// function will send the initial coordinates of teamA to server through UART
+void sendInitialPositionsPackets();
+
+//The Receive Interrupt Handler
+static void Recv_Handler (void* CallBackRef, unsigned int EventData);
+
+// Read data from queue buffer
+void readQueueData ();
+
+// Whenever a packet is received, send it to this function, which will decode data appropriately
+void decodeReceivedPacket(u32 RecvByte);
+
+// convert binary speed to speed in pixels
+int speedInPixels(int binarySpeed);
+
+//***********************************
+// game initialization functions (including push button and dip switch functions)
+//***********************************
+
+// Initialize controller
+// 1. initilizes ball position
+// 2. initializes dip switch
+// 3. initializes buttons
+// 4. initializes teamA fieldSide
+// 5. initializes teamA positions
+void initializeGame();
+
+// Read GPIO input
+int GpioInputInitialize(u32 DeviceId, XGpio *GpioInput);
+
+// set initial coordinates of teams
+void initializeTeams();
+
+//***********************************
+// strategy function prototypes
+//***********************************
+
+// function will decide overall strategy, for all players
+void strategy();
+
+//find player closest to ball
+player* playerClosestToBall (assignment playerAssign[]);
+
+//find player closest to given opponent
+player* playerClosestToOpponent (player* opponent, assignment playerAssign[]);
+
+// function will predict the position of the player in the next iteration
+void playerFuture (player* currPlayer, position* nextPosition);
+
+// function will predict the position of the ball in the next iteration
+void ballFuture (ball* nextBall);
+
+// calculate distance between centers of player and ball
+u16 playerBallDistance (player* myPlayer);
+
+// calculate distance between centers of two players
+u16 playerPlayerDistance (player* opponentPlayer, player* myPlayer);
+
+// find future position of the ball
+u8 validKick (u8 newDirection, u8 prevDirection);
+
+//function returns true if position is within the particular foul box
+int positionIsInFoulBox(position aPosition, foulType foul);
+
+// function checks which players are in foul box and which ones are not
+int numberOfPlayersInFoulBox (team aTeam, foulType foul);
+
+// function will send find desired speed and direction of player, based on desired 'newPosition' 
+void movePlayer (player* myPlayer, position* newPosition);
+
+// determines position of the goalkeeper
+void goalie (player* myPlayer, ball* nextBall);
+
+// facilitates man marking of specific players
+void managePlayer (player* myPlayer, player* opponentPlayer, ball* nextBall, playerStrategy playerStrategy);
+
+/*// determines the mode of the game
+ strategyMode computeStrategyMode(team teamA, team teamB, ball currBall);
+ 
+ // set coordinates of teams for opponent foul
+ void opponentFoulReset(team* teamA, team teamB, ball currBall, u8 fieldSide);
+ 
+ // set coordinates of teams for self foul
+ void ownFoulReset(team *teamA, team teamB, u8 fieldSide);*/
+
+//***********************************
+// testing function prototypes
+//***********************************
+void initTestCases();
+
+void movePlayerTestCases();
+
+void ballFutureTestCases();
+
+void testStrategyOne();
+void testStrategyTwo();
+void testStrategyThree();
+void testStrategyFour();
+void testStrategyFive();

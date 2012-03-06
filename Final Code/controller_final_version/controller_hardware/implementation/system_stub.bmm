@@ -1,0 +1,26 @@
+// File: C:\EE4214\controller_version_6\implementation\system_stub.bmm
+
+ADDRESS_MAP microblaze_0 MICROBLAZE 100
+	ADDRESS_SPACE lmb_bram_combined COMBINED [0x00000000:0x00007fff]
+		ADDRESS_RANGE RAMB16
+		BUS_BLOCK
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_0 [31:30] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_1 [29:28] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_2 [27:26] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_3 [25:24] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_4 [23:22] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_5 [21:20] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_6 [19:18] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_7 [17:16] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_8 [15:14] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_9 [13:12] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_10 [11:10] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_11 [9:8] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_12 [7:6] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_13 [5:4] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_14 [3:2] ;
+			system_i/lmb_bram/lmb_bram/ramb16_s2_s2_15 [1:0] ;
+		END_BUS_BLOCK;
+		END_ADDRESS_RANGE;
+	END_ADDRESS_SPACE;
+END_ADDRESS_MAP;

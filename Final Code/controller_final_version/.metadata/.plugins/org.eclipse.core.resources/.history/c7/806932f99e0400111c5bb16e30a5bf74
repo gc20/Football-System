@@ -1,0 +1,1202 @@
+#include "main.h"
+
+int main(int argc, const char * argv[]) {
+
+	xilkernel_main();
+
+	return 0;
+}
+
+// main program
+int main_prog()
+{  
+	// Initialize game
+	initializeGame();
+	
+	// Initialize interrupts
+	initializeInterrupts();
+	
+    // Send initial co-ordinates for all players
+    sendInitialPositionsPackets();
+	u8 i;
+    for(i = 0; ; i++) {
+		
+		// Read data
+    	//while(numberOfPackets < 11);
+    	numberOfPackets = 0;
+    	readQueueData();
+		
+		//See if any player is inside foul box
+		playerInDefendingFoulBox = numberOfPlayersInFoulBox(teamA, DEFENDING_FOUL);
+		playerInAttackingFoulBox = numberOfPlayersInFoulBox(teamA, ATTACKING_FOUL);
+		
+		// Develop strategy for player movement by considering position of ball/players
+		strategy();
+		
+		// Send player movement updates
+		sendUpdatePackets();
+
+		// offensive/defensive strategy switch
+		u8 switches = XGpio_DiscreteRead(&GpioInputSwitch, 1);
+		// if 4th bit of switch == 1, offensive
+		if((switches >> 3) == 1) {
+			// move all players to offensive side
+			u8 j;
+			for(j = 0; j < 5; j++) {
+				if(fieldSide == FIELD_LEFT && teamA.player[j].position.x > 300) {
+					teamA.player[j].position.x /= 2;
+				}
+				else if(fieldSide == FIELD_RIGHT && teamA.player[j].position.x < 300) {
+					teamA.player[j].position.x *= 2;
+				}
+			}
+		}
+		else {
+			// offensive
+			// do nothing
+		}
+	}
+	return 0;
+}
+
+//***********************************
+// game initialization functions 
+//***********************************
+
+// Initialize controller
+void initializeGame() {
+    // 1. initializes ball position
+    // 2. initializes dip switch
+    // 3. initializes buttons
+    // 4. initializes teamA fieldSide
+    // 5. initializes teamA positions
+    
+    int i;  // variable for looping
+    
+    // Initialize ball position
+	currBall.position.x = BALL_INITIAL_POSITION_X;
+	currBall.position.y = BALL_INITIAL_POSITION_Y;
+    currBall.speed = 10;//BALL_INITIAL_SPEED;
+    currBall.direction = 10;// BALL_INITIAL_DIRECTION;
+    
+    // Initialize dip switches
+    int status = GpioInputInitialize(XPAR_DIP_SWITCHES_4BIT_DEVICE_ID, &GpioInputSwitch);
+    if (!status) {
+     	if (DEBUG_MODE) xil_printf("GpioInput Switches PASSED\r\n");
+    }
+    else {
+        if (DEBUG_MODE) xil_printf("GpioInput Switches FAILED.\r\n");
+    }
+	
+	// Initialize buttons
+    status = GpioInputInitialize(XPAR_BUTTONS_3BIT_DEVICE_ID, &GpioInputButton);
+    if (!status) {
+    	if (DEBUG_MODE) xil_printf("GpioInput Buttons PASSED.\r\n");
+    }
+    else {
+    	if (DEBUG_MODE) xil_printf("GpioInput Buttons FAILED.\r\n");
+    }
+    
+	//keep polling until north button is pressed
+	while((XGpio_DiscreteRead(&GpioInputButton, 1) & 1) != 1);
+	
+	// Read dip switches
+	u8 switches = XGpio_DiscreteRead(&GpioInputSwitch, 1);
+	if (DEBUG_MODE) xil_printf("Read data:0x%X\r\n", switches);
+	
+	// Read dip switches to determine field side
+	if((switches & 1) == 1)
+		fieldSide = FIELD_LEFT;
+	else
+		fieldSide = FIELD_RIGHT;
+    //gameState gameState = NORMAL; // State of the game 
+    
+    // Initialize teams
+	// Right side of pitch
+	if (fieldSide == FIELD_RIGHT) { 
+		
+		for (i = 0; i < 5; i++) {
+			(teamA).player[i].speed = 0;
+			(teamA).player[i].direction = 8; // Facing left
+			(teamA).player[i].kickBit = 0; 
+		}
+		
+		// Goalie
+		(teamA).player[0].position.x = 606;
+		(teamA).player[0].position.y = 200;
+		
+		// Defender
+		(teamA).player[1].position.x = 490;
+		(teamA).player[1].position.y = 50;
+		
+		// Attackers
+		(teamA).player[2].position.x = 490;
+		(teamA).player[2].position.y = 350;
+		(teamA).player[3].position.x = 360;
+		(teamA).player[3].position.y = 210;
+		(teamA).player[4].position.x = 440;
+		(teamA).player[4].position.y = 210;
+	}
+	
+	// Left side of the pitch
+	else {
+		
+		for (i = 0; i < 5; i++) {
+			(teamA).player[i].speed = 0;
+			(teamA).player[i].direction = 0; // Facing right
+			(teamA).player[i].kickBit = 0; 
+		}
+		
+		// Goalie
+		(teamA).player[0].position.x = 34;
+		(teamA).player[0].position.y = 200;
+		
+		// Defender
+		(teamA).player[1].position.x = 150;
+		(teamA).player[1].position.y = 50;
+		
+		// Attackers
+		(teamA).player[2].position.x = 150;
+		(teamA).player[2].position.y = 350;
+		(teamA).player[3].position.x = 280;
+		(teamA).player[3].position.y = 210;
+		(teamA).player[4].position.x = 200;
+		(teamA).player[4].position.y = 210;
+	}
+}
+
+// Read GPIO input
+int GpioInputInitialize(u32 DeviceId, XGpio *GpioInput) {
+	int Status;
+	
+	// Initialize GPIO instance
+	Status = XGpio_Initialize(GpioInput, DeviceId);
+	if (Status != XST_SUCCESS) {
+		return XST_FAILURE;
+	}
+	
+	// Set the direction for all signals to be inputs
+	XGpio_SetDataDirection(GpioInput, 1, 0xFFFFFFFF);
+	
+	return XST_SUCCESS;
+}
+
+//***********************************
+// communication functions
+//***********************************
+
+// Initialize hardware interrupts
+void initializeInterrupts () {
+	
+	int ret, status;
+	
+    status = XUartLite_Initialize(&uart_inst, XPAR_RS232_DTE_DEVICE_ID);
+	
+    if (status != XST_SUCCESS)
+		if (DEBUG_MODE) xil_printf("Failure to initialise!\n"); //XST_FAILURE;
+	
+	// Register and enable interrupt handler for UartLite RS232_DTE
+	ret = register_int_handler(XPAR_XPS_INTC_0_RS232_DTE_INTERRUPT_INTR, XUartLite_InterruptHandler, (void *)&uart_inst);
+	
+	// Registering the receive Xuartlite interrupt handler
+	XUartLite_SetRecvHandler(&uart_inst, Recv_Handler, &uart_inst);
+	
+	// Enabling interrupt in the XILKERNEL
+	XUartLite_SetSendHandler(&uart_inst, Send_Handler, &uart_inst);
+	
+	//Enabling receive handler
+	enable_interrupt(XPAR_XPS_INTC_0_RS232_DTE_INTERRUPT_INTR);
+	
+	// Enabling interrupt in the Xuartlite hardware i.e. RS232_DTE 
+	XUartLite_EnableInterrupt(&uart_inst);
+
+	//emptying buffer
+	XUartLite_ResetFifos(&uart_inst);
+}
+
+// Send Interrupt Handler (Unused)
+static void Send_Handler (void* CallBackRef, unsigned int EventData){
+}
+
+//The Receive Interrupt Handler
+static void Recv_Handler (void* CallBackRef, unsigned int EventData) {
+	// Read data
+	disable_interrupt(XPAR_XPS_INTC_0_RS232_DTE_INTERRUPT_INTR);
+	if (DEBUG_MODE) xil_printf("Inside the receive handler\r\n");
+    
+    u32 datain;
+	
+    if((XUartLite_Recv (&uart_inst, (u8* )&datain, 4))==0)
+		if (DEBUG_MODE) xil_printf("Not received.\n");
+	
+    if (DEBUG_MODE)	xil_printf("Received: Data: %x, received\n", datain);
+	
+	// Add data to queue
+	qWrite = (qWrite+1)%qSize;
+	if (qWrite == qRead)
+		qRead = (qRead+1)%qSize;
+	circularDataBuffer[qWrite] = datain;
+	numberOfPackets++;
+	enable_interrupt(XPAR_XPS_INTC_0_RS232_DTE_INTERRUPT_INTR);
+}
+
+// Send 32-bit packet
+void sendPacket(u32 playerPacket) {
+	
+    if (DEBUG_MODE) xil_printf(" Now sending data = %ld\n",playerPacket);
+	
+    int sent = XUartLite_Send(&uart_inst, (u8*)&playerPacket, 4);
+	
+    if (DEBUG_MODE) xil_printf("sent %d bytes\n",sent);
+}
+
+// Send upate packets
+void sendUpdatePackets()
+{
+	
+	u32 teamPacket, tempPacket, playerPacket;
+	
+	// Embed team ID
+	if (fieldSide == FIELD_LEFT)
+		teamPacket = 0x00000000;
+	else
+		teamPacket = 0x20000000;
+	
+	// Run loop for all players
+	u8 i;
+	for (i=0; i<5; i++) {
+		
+		// Embed player ID
+		tempPacket = i;
+		tempPacket = (tempPacket & 0x0000000F) << 25;
+		playerPacket = teamPacket | tempPacket;
+		
+		// Embed kick information
+		if ((teamA).player[i].kickBit == 1)
+			playerPacket = playerPacket | 0x40000000;
+		
+		// Embed direction
+		tempPacket = (teamA).player[i].direction;
+		tempPacket = tempPacket	<<21 & 0x01E00000;
+		playerPacket = playerPacket | tempPacket;
+		
+		// Embed speed. Always 0xF (100px) for kicks and 0xA for players (50px)
+		//xil_printf("speed %x \n",(teamA).player[i].speed);
+		if ((teamA).player[i].kickBit == 1)
+			tempPacket = 0xF;
+		else {
+			tempPacket = 0xA;
+			if(i == 0)
+				tempPacket = 0x4;
+		}
+		// this means you are not sending zero speed ever
+
+		tempPacket = tempPacket	<<17 & 0x001E0000;
+		playerPacket = playerPacket | tempPacket;
+
+		// Send packet
+		//xil_printf("In sendPacket, sending: %x", playerPacket);
+		sendPacket (playerPacket);
+	}
+}
+
+// function will send the initial coordinates of teamA to server through UART
+void sendInitialPositionsPackets() {
+	//clearing FIFO once again
+	XUartLite_ResetFifos(&uart_inst);
+	
+	u32 playerPacket, tempPacket;
+	u8 i,j;
+
+	for (i=0; i<5; i++) {
+	// Embed team ID
+	if (fieldSide == FIELD_LEFT)
+		playerPacket=0x80000000;
+	else
+		playerPacket=0xA0000000;
+	
+		// Embed player ID
+		tempPacket = i;
+		tempPacket = tempPacket<<25 & 0x1E000000;
+		playerPacket = playerPacket | tempPacket;
+		
+		// Embed x position
+		tempPacket = teamA.player[i].position.x;
+		tempPacket = (tempPacket & 0x000003FF) << 15;
+		playerPacket = playerPacket | tempPacket;
+		
+		// Embed y position
+		tempPacket = teamA.player[i].position.y;
+		tempPacket = (tempPacket & 0x000003FF) << 5;
+		playerPacket = playerPacket | tempPacket;
+		
+		// Send packet
+		printf("%x\n", playerPacket);
+		sendPacket (playerPacket);
+	}
+}
+// Read and decode all packets stored in queue buffer
+void readQueueData () {
+	
+	u8 i, check = 0;
+	while (1) {
+		for (i=1; i<=11;i++){
+			if ((qRead+i)%qSize == qWrite)
+				check = 1;
+		}
+
+		if (check == 1 || qWrite == qRead)
+			check = 0;
+		else
+			break;
+	}
+
+	while(1) {
+		
+        if (qRead == qWrite)
+			break;
+		
+        qRead = (qRead+1)%qSize;
+		decodeReceivedPacket(circularDataBuffer[qRead]);
+	}
+}
+
+// Whenever a packet is received, send it to this function, which will decode data appropriately
+void decodeReceivedPacket (u32 RecvByte)
+{
+	
+	// Discard control packet and parse info packet
+	//xil_printf("Received: %x\n", RecvByte);
+	if ((RecvByte>>31 & 0x01) == 0) 
+	{
+		// If player
+		if (((RecvByte>>29) & 0x01) == 1) {
+			
+			u8 playerID = ((RecvByte) >> 25) & 0x0F;
+			
+			// if player id >=5 corrupt packet so break; return nothing
+			if (playerID>=5)
+				return;
+
+			// Check if packet refers to home team "teamA"
+			if ((((RecvByte>>30) & 0x01) == 0 && fieldSide == FIELD_LEFT) || 
+				(((RecvByte>>30) & 0x01) == 1 && fieldSide == FIELD_RIGHT)) {
+				// Embed position
+				teamA.player[playerID].position.x = (RecvByte>>15) & 0x03ff;
+				teamA.player[playerID].position.y = (RecvByte>>5) & 0x03ff;
+			}
+			else {
+				// Embed position
+				(teamB).player[playerID].position.x = (RecvByte>>15) & 0x03ff;
+				(teamB).player[playerID].position.y = (RecvByte>>5) & 0x03ff;
+			}
+		}
+		
+		// If ball
+		else {
+			
+			(currBall).direction = ((RecvByte) >> 25) & 0x0F;
+			(currBall).position.x = (RecvByte>>15) & 0x03ff;
+			(currBall).position.y = (RecvByte>>5) & 0x03ff;
+			(currBall).speed = speedInPixels(((RecvByte>>1) & 0x000F));
+		}
+	}
+}	
+
+int speedInPixels(int binarySpeed) {
+    
+    switch (binarySpeed) {
+        case 0:
+            return 0;
+            break;
+        case 1:
+            return 5;
+            break;
+        case 2:
+            return 10;
+            break;
+        case 3:
+            return 15;
+            break;
+        case 4:
+            return 20;
+            break;
+        case 5:
+            return 25;
+            break;
+        case 6:
+            return 30;
+            break;
+        case 7:
+            return 35;
+            break;
+        case 8:
+            return 40;
+            break;
+        case 9:
+            return 45;
+            break;
+        case 10:
+            return 50;
+            break;
+        case 11:
+            return 60;
+            break;
+        case 12:
+            return 70;
+            break;
+        case 13:
+            return 80;
+            break;
+        case 14:
+            return 90;
+            break;
+        case 15:
+            return 100;
+            break;
+        default:
+            return 0;
+            break;
+    }
+}
+
+//***********************************
+// strategy functions
+//***********************************
+
+// implement strategy for team by modifying variables of "teamA"
+void strategy() {
+    
+	// Predict ball's future position
+	ball nextBall;
+	ballFuture(&nextBall);
+	
+	// Designate Position of the goalie
+	goalie (&teamA.player[0], &nextBall);
+	
+	// Array used to monitor player assignment
+	assignment playerAssign [] = {ASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED};
+	
+	// Send player closest to ball to the ball
+    managePlayer(playerClosestToBall(playerAssign), &(teamA).player[0], &nextBall, BALL_ATTACK);
+	
+	// Manmark two opponents closest to the goal/goalie
+	u16 min_dist1 = playerPlayerDistance(&(teamB).player[0], &(teamA).player[0]); // distance of the closest player
+	u8 min_player1 = 0;
+	u16 min_dist2 = playerPlayerDistance(&(teamB).player[1], &(teamA).player[0]); // distance of the second closest player
+	u8 min_player2 = 1;
+	u8 i = 2;			 
+	u16 temp_distance;
+	if (min_dist2 < min_dist1) {
+		temp_distance = min_dist1;
+		min_dist1 = min_dist2;
+		min_dist2 = temp_distance;
+		min_player1 = 1;
+		min_player2 = 0;
+	}
+	for (i=2; i<NUMBER_OF_PLAYERS; i++) {
+		temp_distance = playerPlayerDistance(&(teamB).player[i], &(teamA).player[0]);
+		
+		if (temp_distance < min_dist1) {
+			min_dist2 = min_dist1;
+			min_player2 = min_player1;
+			min_dist1 = temp_distance;
+			min_player1 = i;
+		}
+		
+		if (temp_distance >= min_dist1 && temp_distance < min_dist2) {
+			min_dist2 = temp_distance;
+			min_player2 = i;
+		}
+	}
+	managePlayer(playerClosestToOpponent(&(teamB).player[min_player1], playerAssign), &(teamB).player[min_player1], &nextBall, MAN_MARK);
+	managePlayer(playerClosestToOpponent(&(teamB).player[min_player2], playerAssign), &(teamB).player[min_player2], &nextBall, MAN_MARK);
+	
+	// Send final player to support the attack
+	for (i=1; i<NUMBER_OF_PLAYERS; i++) {
+		if (playerAssign[i] == UNASSIGNED)
+			managePlayer(&(teamA).player[i], &(teamA).player[0], &nextBall, ATTACK_SUPPORT);
+	}
+	
+	/* Check offensive/defensive and assign statically
+	 strategyMode mode = computeStrategyMode(*teamA, *teamB, *currBall);
+	 if (mode == DEFENSIVE || mode = OFFENSIVE) {
+	 // Statically assign player1, player2 as attacker
+	 ballAttacker(&(*teamA).player[1], currBall, &nextBall, fieldSide);
+	 ballAttacker(&(*teamA).player[2], currBall, &nextBall, fieldSide);
+	 
+	 // Rest of the players are defenders/man markers
+	 manMarker(&(*teamA).player[3], &(*teamB).player[3], currBall, &nextBall, fieldSide);
+	 manMarker(&(*teamA).player[4], &(*teamB).player[4], currBall, &nextBall, fieldSide);
+	 }*/
+}
+
+
+//find player closest to ball
+player* playerClosestToBall (assignment playerAssign[]) {
+    
+    u16 min_dist = playerBallDistance(&(teamA.player[1]));
+    u8 closest_player = 1;
+	u16 temp_distance;
+	u8 i;
+	
+    // Check if any other player is closer
+	for (i = 2; i < NUMBER_OF_PLAYERS; i++) {
+        
+        temp_distance = playerBallDistance(&(teamA.player[i]));
+		if (temp_distance < min_dist)
+			closest_player = i;
+    }
+	playerAssign [closest_player] = ASSIGNED; // Show that the player has been assigned a role
+    
+    return (&(teamA.player[closest_player]));
+}
+
+
+//find player closest to given opponent
+player* playerClosestToOpponent (player* opponent, assignment playerAssign[]) {
+    
+    u16 min_dist = 0;
+    u8 closest_player = 0;
+	u16 temp_distance;
+	u8 booleanCheck = 0;
+	u8 i;
+	
+	// Check if any other player is closer
+	for (i = 1; i < NUMBER_OF_PLAYERS; i++) {
+        
+		if (playerAssign[i] == ASSIGNED)
+			continue;
+		
+        temp_distance = playerPlayerDistance(opponent,  &(teamA.player[i]));
+		
+		if (booleanCheck == 0 || temp_distance < min_dist) {
+			booleanCheck = 1;
+			closest_player = i;
+			min_dist = temp_distance;
+		}
+		
+    }
+	playerAssign [closest_player] = ASSIGNED; // Show that the player 
+    
+    return (&(teamA.player[closest_player]));
+}
+
+
+// find future position of the player
+void playerFuture (player* currPlayer, position* nextPosition) {
+    
+	#warning "To be implemented: movement and reflection of player motion. Run this for multiple cycles (4 or 5). Account for friction."
+	
+    //Assuming any player moves towards the object (ball/opponent) closest to him
+    // for now assuming player continues in current path itself
+    nextPosition->x = currPlayer->position.x;
+    nextPosition->y = currPlayer->position.y;
+}
+
+
+// find future position of the ball
+void ballFuture (ball* nextBall) {
+	
+    u8 i;
+	u8 cycles = 5;
+	
+	// Initialize next ball
+	(*nextBall).direction = (currBall).direction;
+	(*nextBall).position.x = (currBall.position.x);
+	(*nextBall).position.y = (currBall.position.y);
+	(*nextBall).speed = (currBall.speed);
+	/*double speedX = (double)(*nextBall).speed * cos(-22.5 * currBall.direction * M_PI / 180);
+	double speedY = (double)(*nextBall).speed * sin(-22.5 * currBall.direction * M_PI / 180);
+	
+    speedX *= 0.04;
+    speedY *= 0.04;
+#warning direction updated is not correct
+    for (i=0; i<cycles; i++) {
+		
+		//update ball position
+		(*nextBall).position.x = (*nextBall).position.x + (speedX);
+		(*nextBall).position.y = (*nextBall).position.y + (speedY);
+		
+		//when ball collides with left corner vertical wall, update speed, x direction velocity reversed, y direction velocity unchanged
+		if(((*nextBall).position.x < (20+5) && (*nextBall).direction >= 4 && (*nextBall).direction <= 12)) {
+			speedX = -1 * speedX;
+			if((*nextBall).direction < 8) {
+				(*nextBall).direction += 8;
+			}
+			else {
+				(*nextBall).direction -= 8;
+			}
+		}
+		// right corner vertical wall
+		else if(((*nextBall).position.x > (620-5) && ((*nextBall).direction >= 12 || (*nextBall).direction <= 4))) {
+			speedX *= -1;
+			if((*nextBall).direction >= 12) {
+				(*nextBall).direction -= 8;
+			}
+			else {
+				(*nextBall).direction += 8;
+			}
+		}
+		//when ball collides with horizontal wall, update speed, y direction velocity reversed, x direction velocity unchanged
+		if(((*nextBall).position.y < (0+5) && (*nextBall).direction >= 8) ||
+				((*nextBall).position.y > (400-5) && (*nextBall).direction <= 8)){
+			speedY = -1 * speedY;
+		}
+		
+#warning Add triangle collision later
+		//when ball collides with triangles cut-off at four corners
+         if(distancePtLine(nike.position, 40, 0, 20, 20) <= 5 || distancePtLine(nike.position, 20, 380, 40, 400) <= 5||
+         distancePtLine(nike.position, 580, 0, 600, 20) <= 5 ||distancePtLine(nike.position, 600, 380, 580, 400) <= 5){
+         nike.speed.x = -1 * nike.speed.y;
+         nike.speed.y = -1 * nike.speed.x;
+         }
+        
+#warning Add friction later
+		//(*nextBall).speed = (currBall.speed - (2<<4))<0? 0:currBall.speed - (2<<4);   //friction is 0.4 pix/cycle => 2 pix/ 5 cycles
+		
+		
+	}*/
+}
+
+// calculate distance between centers of player and ball
+u16 playerBallDistance (player* myPlayer) {
+	
+	int dx = (currBall).position.x - (*myPlayer).position.x;
+	int dy = (currBall).position.y - (*myPlayer).position.y; 
+	return ((u16) (dx*dx + dy*dy));
+}
+
+// calculate distance between centers of two players
+u16 playerPlayerDistance (player* opponentPlayer, player* myPlayer) {
+	
+	int dx = (*opponentPlayer).position.x - (*myPlayer).position.x;
+	int dy = (*opponentPlayer).position.y - (*myPlayer).position.y; 
+	return ((u16) (dx*dx + dy*dy));
+}
+
+// find if player is facing correct direction
+u8 validKick (u8 newDirection, u8 prevDirection) {
+    
+	u8 i;
+	u8 tempValue;
+	
+	for (i=0; i<=4; i++) {
+		
+		tempValue = prevDirection-i;
+		if (tempValue < 0)
+			tempValue += 16;
+		
+		if ((tempValue == newDirection) || ((prevDirection+i)%16 == newDirection))
+			return 1;
+	}
+	return 0;
+}
+
+//function returns true if position is within the particular foul box
+int positionIsInFoulBox(position aPosition, foulType foul) {
+	//if our team is on left side
+	if(fieldSide == FIELD_LEFT) {
+		//check corresponding foul boxes
+		if(foul == DEFENDING_FOUL) {
+			if(aPosition.x >= FOUL_BOX_1_TOP_RIGHT_X 
+				&& aPosition.x <= FOUL_BOX_1_BOTTOM_LEFT_X 
+				&& aPosition.y >= FOUL_BOX_1_TOP_RIGHT_Y
+				&& aPosition.y <= FOUL_BOX_1_BOTTOM_LEFT_Y) {
+				
+				return 1;
+			}
+		}
+		else {
+			if(aPosition.x >= FOUL_BOX_2_TOP_RIGHT_X 
+				&& aPosition.x <= FOUL_BOX_2_BOTTOM_LEFT_X 
+				&& aPosition.y >= FOUL_BOX_2_TOP_RIGHT_Y
+				&& aPosition.y <= FOUL_BOX_2_BOTTOM_LEFT_Y) {
+				
+				return 1;
+			}
+		}
+	}
+	//if our team is on the right
+	else {
+		//check corresponding foul boxes
+		if(foul == ATTACKING_FOUL) {
+			if(aPosition.x >= FOUL_BOX_1_TOP_RIGHT_X 
+				&& aPosition.x <= FOUL_BOX_1_BOTTOM_LEFT_X 
+				&& aPosition.y >= FOUL_BOX_1_TOP_RIGHT_Y
+				&& aPosition.y <= FOUL_BOX_1_BOTTOM_LEFT_Y) {
+				
+				return 1;
+			}
+		}
+		else {
+			if(aPosition.x >= FOUL_BOX_2_TOP_RIGHT_X 
+				&& aPosition.x <= FOUL_BOX_2_BOTTOM_LEFT_X 
+				&& aPosition.y >= FOUL_BOX_2_TOP_RIGHT_Y
+				&& aPosition.y <= FOUL_BOX_2_BOTTOM_LEFT_Y) {
+				
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int numberOfPlayersInFoulBox (team aTeam, foulType foul) {
+	
+	//first set the locations of the foul box we need to check
+	position boxTopRight, boxBottomLeft;
+	int numberOfPlayersInBox = 0, i;
+	
+	if((fieldSide == FIELD_LEFT && foul == DEFENDING_FOUL) || (fieldSide == FIELD_RIGHT && foul == ATTACKING_FOUL)) {
+		boxTopRight.x = FOUL_BOX_1_TOP_RIGHT_X;
+		boxTopRight.y = FOUL_BOX_1_TOP_RIGHT_Y;
+		boxBottomLeft.x = FOUL_BOX_1_BOTTOM_LEFT_X;
+		boxBottomLeft.y = FOUL_BOX_1_BOTTOM_LEFT_Y;
+	}
+	else {
+		boxTopRight.x = FOUL_BOX_2_TOP_RIGHT_X;
+		boxTopRight.y = FOUL_BOX_2_TOP_RIGHT_Y;
+		boxBottomLeft.x = FOUL_BOX_2_BOTTOM_LEFT_X;
+		boxBottomLeft.y = FOUL_BOX_2_BOTTOM_LEFT_Y;
+	}
+	
+	for(i = 0; i < NUMBER_OF_PLAYERS; i++) {
+		if(aTeam.player[i].position.x >= boxTopRight.x
+		   && aTeam.player[i].position.x <= boxBottomLeft.x
+		   && aTeam.player[i].position.y >= boxTopRight.y
+		   && aTeam.player[i].position.y <= boxBottomLeft.y) {
+			aTeam.player[i].isInFoulBox = 1;
+			numberOfPlayersInBox++;
+		}
+		else {
+			aTeam.player[i].isInFoulBox = 0;
+		}
+		
+	}
+	
+	return 0;
+}
+
+// function will send find desired speed and direction of player, based on desired 'newPosition' 
+void movePlayer (player* myPlayer, position* newPosition) {
+	
+	//let players already in foul box move
+	if(!(*myPlayer).isInFoulBox) {
+		//if player wants to move to defending foul box with 2 players already in it
+		if(positionIsInFoulBox(*newPosition, DEFENDING_FOUL) && playerInDefendingFoulBox == 2) {
+			xil_printf("Preventing defending foul");
+			return;
+		}
+	
+		//if player wants to move to attacking foul box with 1 player already in it
+		if(positionIsInFoulBox(*newPosition, ATTACKING_FOUL) && playerInAttackingFoulBox == 1) {
+			xil_printf("Preventing attacking foul");
+			return;
+		}
+	}
+	
+	// Set speed as maximum
+	(*myPlayer).speed = 100; // Speed of 100 pixels/second
+	
+	// Find direction
+	int dx = (*newPosition).x - (*myPlayer).position.x;
+	int dy = -1 * ((*newPosition).y - (*myPlayer).position.y);
+	
+	// Check for special conditions where tan function will be undefined
+	if (dx == 0) {
+		if (dy>0) 
+			(*myPlayer).direction = 12;
+		else
+			(*myPlayer).direction = 4;
+	}
+	else if (dy == 0) {
+		if (dx>0) 
+			(*myPlayer).direction = 0;
+		else
+			(*myPlayer).direction = 8;
+	}
+	
+	// Find direction iteratively for the generic scenario
+	else {
+		
+		// Find angle of rotation
+		double angle = atan ((double)dy/(double)dx) / PI * 180;
+		
+		if (angle < 0)
+			angle = angle + 180;
+		
+		if (dy < 0)
+			angle = angle + 180;
+		
+		// Assign direction based on quadrant
+		(*myPlayer).direction = 0; // Clear direction
+		while (!(angle > 78.75 && angle <= 101.25)) {
+			(*myPlayer).direction += 1;	
+			angle += 22.5;
+			if (angle > 360)
+				angle -= 360;
+		}	
+		(*myPlayer).direction = ((*myPlayer).direction + 12) % 16; // 12 is added to switch from coordinate system in image 1 of wiki to system in image 2 
+	}
+}
+
+// Determine position of goalie
+void goalie (player *myPlayer, ball* nextBall) {
+	
+	// New position of goalie for the next cycle
+	position* newPosition;
+    
+	// Determine x position based on the side of the field
+	if (fieldSide) { // Right side of the field
+		(*newPosition).x = FRight - playerRadius*2;
+		(*myPlayer).direction = 8;// Face left
+	}
+	else {// Left side of the field
+		(*newPosition).x = FLeft + playerRadius*2; 
+		(*myPlayer).direction = 0;// Face right
+	}
+	
+	// Kick ball if its in proximity at maximum speed away from the goal. This is of more priority than moving to the ball
+	// xx Improvement 1: Generate direction of kick randomly? Unncessary?
+	// xx Improvement 2: Account for rare case when the goalie is heading back to goal and cannot kick the ball away. Might never occur.
+	if (playerBallDistance(myPlayer) <= kickRadius*kickRadius) {
+		(*myPlayer).speed = 100; // 100 pixels / second
+		(*myPlayer).kickBit = 1; // Set kick bit
+		return;
+	}
+	
+	// Determine y position based on y coordinate of the ball
+	(*newPosition).y = (*nextBall).position.y;
+	if ((*newPosition).y > (GLower-ballRadius)) { 
+		(*newPosition).y = GLower-ballRadius;
+	}
+	else if ((*newPosition).y < (GUpper+ballRadius)) {
+		(*newPosition).y = GUpper+ballRadius;
+	}
+	
+	
+	// If ball is inside the box, advance towards it
+	if ((fieldSide==FIELD_LEFT && (*nextBall).position.x < (FLeft + 50)) || (fieldSide==FIELD_RIGHT && (*nextBall).position.x > (FRight - 50))) {
+		if ((*nextBall).position.y <= GLower && ((*nextBall).position.y >= GUpper)) {
+            (*newPosition).x = (*nextBall).position.x;
+		}
+	}
+	
+	// Adjust player motion based on desired position
+	movePlayer (myPlayer, newPosition);
+
+	// set the speed of goalie to be 50 pix/sec always
+	myPlayer->speed = 20;
+}
+
+// facilitates man marking of specific players
+void managePlayer (player* myPlayer, player* opponentPlayer, ball* nextBall, playerStrategy playerStrategy) {
+	
+	// New position of player/ball kick for the next cycle
+	position* newPosition = malloc(sizeof(position));
+	
+	// Stores previous direction of the player
+	u8 prevDirection = (*myPlayer).direction;
+	position prevPosition;
+	prevPosition.x = (*myPlayer).position.x;
+	prevPosition.y = (*myPlayer).position.y;
+	
+	// Kick ball towards goal if the ball is in proximity
+	if (playerBallDistance(myPlayer) <= kickRadius*kickRadius) {		
+		//xil_printf("Trying to kick\n");
+		(*myPlayer).kickBit = 1; // Set kick bit
+		// check if player can kick the ball towards the goal
+		(*newPosition).y = (GUpper+GLower)/2; // Center of the goal
+		if (fieldSide) { // Right side of pitch
+			// if ball is between player and goal, kick is possible
+			if((currBall.position.x) > FLeft && (currBall.position.x) < myPlayer->position.x) {
+				(*newPosition).x = FLeft;
+			}
+			else {	//kick up or down
+				//if ball is above player, kick up
+				if(currBall.position.y < myPlayer->position.y) {
+					(*newPosition).x = myPlayer->position.x;
+					(*newPosition).y = FTop;
+				}
+				else {	//kick down
+					(*newPosition).x = myPlayer->position.x;
+					(*newPosition).y = FBottom;
+				}
+			}
+		}
+		else { // Left side of pitch
+			// if ball is between player and goal, kick is possible
+			if((currBall.position.x) < FRight && (currBall.position.x) > myPlayer->position.x) {
+				(*newPosition).x = FRight;
+			}
+			else {	//kick up or down
+					//if ball is above player, kick up
+				if(currBall.position.y < myPlayer->position.y) {
+					(*newPosition).x = myPlayer->position.x;
+					(*newPosition).y = FTop;
+				}
+				else {	//kick down
+					(*newPosition).x = myPlayer->position.x;
+					(*newPosition).y = FBottom;
+				}
+			}
+		}
+		movePlayer (myPlayer, newPosition); // Set speed and direction of kick
+		
+		// Checks if direction of the player's kick is valid. Continue if the kick is valid.
+		if (validKick ((*myPlayer).direction, prevDirection))
+			return;
+		// If the kick is not valid, reorient player towards the direction of the ball in the next clock cycle
+	#warning "Can be made more sophisticated"
+		else {
+			//xil_printf("Kick invalid\n");
+			(*myPlayer).kickBit = 0; // Dont kick
+			(*myPlayer).position.x = prevPosition.x;
+			(*myPlayer).position.y = prevPosition.y;
+			(*myPlayer).speed = 0; // Stay still. Only rotate.
+			return;
+		}
+	}
+	
+	switch (playerStrategy) {
+			
+		case MAN_MARK: {
+			
+			// Predicted position of the opponent
+			position* newPositionOpponent = malloc(sizeof(position));
+			
+			// Let the player be on the line between ball and opponent in a 1:4 distance ratio
+			playerFuture (opponentPlayer, newPositionOpponent);
+			//(*newPosition).x = (*newPositionOpponent).x * 0.8 + (*nextBall).position.x * 0.2;
+			//(*newPosition).y = (*newPositionOpponent).y * 0.8 + (*nextBall).position.y * 0.2;
+			newPosition->x = newPositionOpponent->x;
+			newPosition->y = newPositionOpponent->y;
+			
+			break;
+		}
+			
+		case BALL_ATTACK: {
+			
+			// Player's desired position is the position of the ball
+			(*newPosition).x = (*nextBall).position.x;
+			(*newPosition).y = (*nextBall).position.y;
+			break;
+		}
+			
+		case ATTACK_SUPPORT: {
+			
+			// Let the player be halfway between ball and the goal
+			if (fieldSide == FIELD_RIGHT) {
+				(*newPosition).x = FLeft * 0.5 + (*nextBall).position.x * 0.5;
+			}
+			else {
+				(*newPosition).x = FRight * 0.5 + (*nextBall).position.x * 0.5;
+			}	
+			(*newPosition).y = (GUpper+GLower) + (*nextBall).position.y * 0.5; // Center of the goal
+			
+			break;
+		}
+			
+		default:
+			break;
+	}
+    
+    // Move player towards desired position
+    movePlayer (myPlayer, newPosition);
+}
+
+// test strategy to check if player movement works
+void testStrategyOne() {
+    
+    // randomly set each player at a different speed from the initial position
+    int i;
+    for (i = 0; i < 5; i++) {
+        teamA.player[i].speed = 100;     // random speeds
+        teamA.player[i].direction = 0;  // random directions
+    }
+}
+
+// test strategy to check if player follows ball
+void testStrategyTwo() {
+    
+    // set player closest ball to follow ball
+    // others do nothing...
+    // Predict ball's future position
+		ball nextBall;
+
+		ballFuture(&nextBall);
+//		nextBall.position.x = 100;
+//		nextBall.position.y = 200;
+
+		// Array used to monitor player assignment
+		assignment playerAssign [] = {ASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED};
+
+		managePlayer(&teamA.player[0], &(teamA).player[0], &currBall, BALL_ATTACK);
+}
+
+// Send players (hard-coded) to man mark opponents
+void testStrategyThree() {
+
+    // Predict ball's future position
+	ball nextBall;
+	ballFuture(&nextBall);
+    
+    // Array used to monitor player assignment
+	assignment playerAssign [] = {ASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED,UNASSIGNED};
+    
+    managePlayer(&(teamA).player[3], &(teamB).player[3], &nextBall, MAN_MARK);
+	managePlayer(&(teamA).player[4], &(teamB).player[4], &nextBall, MAN_MARK);
+}
+
+// Hard code a goalie and check his movements with random movements of ball
+void testStrategyFour() {
+    
+    // Predict ball's future position
+	ball nextBall;
+	ballFuture(&nextBall);
+    
+    // Designate Position of the goalie
+	goalie (&teamA.player[0], &nextBall);
+}
+
+// Make sure players don't commit a foul
+void testStrategyFive() {
+    
+    // move one player into foul box
+    // see if another player moves in too
+    
+    position aPosInFoulBox = {590, 200};
+    
+    movePlayer(&teamA.player[0], &aPosInFoulBox);
+    movePlayer(&teamA.player[1], &aPosInFoulBox);
+}
+
+/*
+// Compute strategy
+strategyMode computeStrategyMode(team teamA, team teamB, ball currBall) {
+    
+    // mode is offensive if our team players are closest to the ball
+    // else mode is defensive
+    
+    int min_dist_A = MAX_DISTANCE, min_dist_B = MAX_DISTANCE;
+    
+    // distance for team A
+    int i;
+    for (i = 0; i < NUMBER_OF_PLAYERS; i++) {
+        
+        int dx = teamA.player[i].position.x - currBall.position.x;
+        int dy = teamA.player[i].position.y - currBall.position.y;
+        int distance = dx*dx + dy*dy;
+        
+        if (distance < min_dist_A) {
+            min_dist_A = distance;
+        }
+    }
+	
+    // distance for team B
+    for (i = 0; i < NUMBER_OF_PLAYERS; i++) {
+        
+        int dx = teamB.player[i].position.x - currBall.position.x;
+        int dy = teamB.player[i].position.y - currBall.position.y;
+        int distance = dx*dx + dy*dy;
+        
+        if (distance < min_dist_B) {
+            min_dist_B = distance;
+        }
+    }
+    
+    if (min_dist_A < min_dist_B) {
+        return OFFENSIVE;
+    }
+    else
+        return DEFENSIVE; 
+}
+
+// Test cases
+void initTestCases(team *teamA, team *teamB, u8 fieldSide, ball currBall) {
+    
+    fieldSide = FIELD_LEFT;
+    initializeTeams(&(*teamA), &(*teamB), fieldSide);
+    
+    fieldSide = FIELD_RIGHT;
+    initializeTeams(&(*teamA), &(*teamB), fieldSide);
+}
+
+void movePlayerTestCases() {
+    
+    player newPlayer = {{280, 240}, 0, 0, 0};
+    
+    position newPosition = {281, 240};
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 290;
+    newPosition.y = 245;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 290;
+    newPosition.y = 255;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 290;
+    newPosition.y = 480;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 200;
+    newPosition.y = 440;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 0;
+    newPosition.y = 480;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 0;
+    newPosition.y = 400;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 0;
+    newPosition.y = 240;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 0;
+    newPosition.y = 180;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 0;
+    newPosition.y = 0;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 150;
+    newPosition.y = 0;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 280;
+    newPosition.y = 0;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 330;
+    newPosition.y = 0;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 480;
+    newPosition.y = 0;
+    movePlayer(&newPlayer, &newPosition);
+    
+    newPosition.x = 560;
+    newPosition.y = 100;
+    movePlayer(&newPlayer, &newPosition);
+	
+}
+
+void ballFutureTestCases() {
+    
+    ball currBall = {{0, 0}, 1600, 0};
+    
+    while (currBall.speed >= 0) {
+        
+        ballFuture(&currBall, &currBall);
+}
+ 
+}*/
+
+

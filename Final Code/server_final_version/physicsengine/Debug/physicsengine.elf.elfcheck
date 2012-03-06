@@ -1,0 +1,9 @@
+elfcheck
+Xilinx EDK 13.1 Build EDK_O.40d
+Copyright (c) 1995-2010 Xilinx, Inc.  All rights reserved.
+
+Command Line: elfcheck -hw ../../Server_Final_hw_platform/system.xml -pe
+microblaze_1 physicsengine.elf 
+
+ELF file	: physicsengine.elf
+elfcheck passed.

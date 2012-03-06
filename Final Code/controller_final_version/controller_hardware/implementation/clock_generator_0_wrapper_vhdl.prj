@@ -1,0 +1,5 @@
+vhdl clock_generator_v4_01_a "C:\Xilinx\13.1\ISE_DS\EDK\hw\XilinxProcessorIPLib\pcores\clock_generator_v4_01_a\hdl\vhdl\dcm_module.vhd"
+vhdl clock_generator_v4_01_a "C:\Xilinx\13.1\ISE_DS\EDK\hw\XilinxProcessorIPLib\pcores\clock_generator_v4_01_a\hdl\vhdl\pll_module.vhd"
+vhdl clock_generator_v4_01_a "C:\Xilinx\13.1\ISE_DS\EDK\hw\XilinxProcessorIPLib\pcores\clock_generator_v4_01_a\hdl\vhdl\mmcm_module.vhd"
+vhdl clock_generator_0_v4_01_a "C:\EE4214\controller_version_6\hdl\elaborate\clock_generator_0_v4_01_a\hdl\vhdl\clock_generator.vhd"
+vhdl work "C:\EE4214\controller_version_6\hdl\clock_generator_0_wrapper.vhd"

@@ -1,0 +1,13 @@
+run
+-opt_mode speed
+-netlist_hierarchy as_optimized
+-opt_level 1
+-p xc3s1600efg320-4
+-top rs232_dte_wrapper
+-ifmt MIXED
+-ifn rs232_dte_wrapper_xst.prj
+-ofn ../implementation/rs232_dte_wrapper.ngc
+-hierarchy_separator /
+-iobuf NO
+-sd {../implementation/rs232_dte_wrapper}
+-vlgincdir {"C:\EE4214\controller_version_6\pcores\" "C:\Xilinx\13.1\ISE_DS\EDK\hw\XilinxBFMinterface\pcores\" "C:\Xilinx\13.1\ISE_DS\EDK\hw\XilinxProcessorIPLib\pcores\" }

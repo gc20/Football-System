@@ -1,0 +1,29 @@
+Release 13.1 ngcbuild O.40d (nt)
+Copyright (c) 1995-2011 Xilinx, Inc.  All rights reserved.
+
+Command Line: C:\Xilinx\13.1\ISE_DS\ISE\bin\nt\unwrapped\ngcbuild.exe -p
+xc3s1600efg320-4 -intstyle silent -i -sd .. ddr_sdram_wrapper.ngc
+../ddr_sdram_wrapper
+
+Reading NGO file
+"C:/EE4214/controller_version_6/implementation/ddr_sdram_wrapper/ddr_sdram_wrapp
+er.ngc" ...
+
+Partition Implementation Status
+-------------------------------
+
+  No Partitions were found in this design.
+
+-------------------------------
+
+NGCBUILD Design Results Summary:
+  Number of errors:     0
+  Number of warnings:   0
+
+Total memory usage is 81636 kilobytes
+
+Writing NGC file "../ddr_sdram_wrapper.ngc" ...
+Total REAL time to NGCBUILD completion:  2 sec
+Total CPU time to NGCBUILD completion:   2 sec
+
+Writing NGCBUILD log file "../ddr_sdram_wrapper.blc"...
